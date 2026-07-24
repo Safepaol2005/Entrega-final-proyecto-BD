@@ -123,8 +123,8 @@ BEGIN
     END IF;
     
     SELECT
-        COALESCE(SUM(publicacion.calificacion), 0.0),
-        COUNT(publicacion.calificacion)
+        COALESCE(SUM(producto.calificacion), 0.0),
+        COUNT(producto.calificacion)
     INTO
         v_suma,
         v_cantidad
