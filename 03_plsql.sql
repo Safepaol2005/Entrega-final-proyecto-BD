@@ -145,13 +145,13 @@ END$$
 -- ================
 
 -- 1. Triggers que generan automaticamente la auditoria para las transacciones
-CREATE OR TRIGGER trg_auditar_nueva_compra
+CREATE TRIGGER trg_auditar_nueva_compra
 AFTER INSERT ON COMPRA
 FOR EACH ROW
 BEGIN
     INSERT INTO AUDITORIA_TRANSACCIONES (id_compra, tipo_evento, detalle_evento, usuario_auditor) VALUES 
         (NEW.id_compra, 'NUEVA_COMPRA', CONCAT('El comprador ID ', NEW.id_comprador, ' realizó una compra en la publicación ID ', NEW.id_publicacion, ' por un monto de $', NEW.monto_total, ' con el método de pago: ', NEW.metodo_pago), CURRENT_USER());
-END$$
+END //
 
 CREATE TRIGGER trg_auditar_nuevo_trueque
 AFTER INSERT ON TRUEQUE
@@ -159,7 +159,7 @@ FOR EACH ROW
 BEGIN
     INSERT INTO AUDITORIA_TRANSACCIONES (id_trueque, tipo_evento, detalle_evento, usuario_auditor) VALUES 
         (NEW.id_trueque, 'NUEVO_TRUEQUE', CONCAT('Trueque iniciado por comprador ID ', NEW.id_comprador_iniciador, ' ofreciendo publicación ', NEW.id_publicacion_ofrecida, ' por la publicación ', NEW.id_publicacion_deseada), CURRENT_USER());
-END$$
+END //
 
 CREATE TRIGGER trg_auditar_nuevo_prestamo
 AFTER INSERT ON PRESTAMO
@@ -169,6 +169,58 @@ BEGIN
         (NEW.id_prestamo, 'NUEVO_PRESTAMO', CONCAT('El comprador ID ', NEW.id_comprador, ' solicitó en préstamo la publicación ID ', NEW.id_publicacion, '. Fecha pactada de devolución: ', DATE_FORMAT(NEW.fecha_devolucion_pactada, '%Y-%m-%d %H:%i')), CURRENT_USER());
 END //
 
--- 2. 
+-- 2. Trigger para validar las disponibilidad de una compra, mirando que tanto comprador como publicacion existen y verificando si hay stock para el caso de productos y disponibilidad horaria en el caso de servicio
+
+CREATE TRIGGER trg_validar_disponibilidad_compra
+BEFORE INSERT ON COMPRA
+FOR EACH ROW
+BEGIN
+
+    DECLARE v_existe_comprador INT DEFAULT 0;
+    DECLARE v_existe_publicacion INT DEFAULT 0;
+    DECLARE v_tipo_item VARCHAR(20);
+    DECLARE v_stock_producto INT;
+    DECLARE v_disp_servicio VARCHAR(255);
+
+    SELECT COUNT(*) INTO v_existe_comprador 
+    FROM COMPRADOR WHERE id_comprador = NEW.id_comprador;
+    
+    IF v_existe_comprador = 0 THEN
+        SIGNAL SQLSTATE '45000' 
+        SET MESSAGE_TEXT = 'Excepción: El comprador indicado no existe en el sistema.';
+    END IF;
+
+    SELECT COUNT(*) INTO v_existe_publicacion 
+    FROM PUBLICACION WHERE id_publicacion = NEW.id_publicacion;
+    
+    IF v_existe_publicacion = 0 THEN
+        SIGNAL SQLSTATE '45000' 
+        SET MESSAGE_TEXT = 'Excepción: La publicación indicada no existe en el sistema.';
+    END IF;
+
+    SELECT tipo_item INTO v_tipo_item 
+    FROM PUBLICACION WHERE id_publicacion = NEW.id_publicacion;
+
+    IF v_tipo_item = 'Producto' THEN
+        SELECT stock INTO v_stock_producto 
+        FROM PRODUCTO WHERE id_publicacion = NEW.id_publicacion;
+
+        IF v_stock_producto IS NULL OR v_stock_producto <= 0 THEN
+            SIGNAL SQLSTATE '45000' 
+            SET MESSAGE_TEXT = 'Excepción: El producto no cuenta con stock disponible (> 0) o no existe el detalle del producto.';
+        END IF;
+        
+    ELSEIF v_tipo_item = 'Servicio' THEN
+        SELECT disponibilidad_horaria INTO v_disp_servicio 
+        FROM SERVICIO WHERE id_publicacion = NEW.id_publicacion;
+        
+        IF v_disp_servicio IS NULL OR TRIM(v_disp_servicio) = '' THEN
+            SIGNAL SQLSTATE '45000' 
+            SET MESSAGE_TEXT = 'Excepción: El servicio tiene una disponibilidad horaria vacía o no existe el detalle del servicio.';
+        END IF;
+        
+    END IF;
+
+END //
     
 DELIMITER ;
