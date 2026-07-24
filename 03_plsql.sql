@@ -1,4 +1,10 @@
+USE UnTrade;
+
 DROP PROCEDURE IF EXISTS aplicar_sancion;
+DROP PROCEDURE IF EXISTS calificar_vendedor;
+DROP FUNCTION IF EXISTS promedio;
+
+DELIMITER $$
 
 CREATE PROCEDURE aplicar_sancion(
     IN p_id_prestamo INT,
@@ -82,3 +88,57 @@ BEGIN
 
     COMMIT;
 END$$
+
+CREATE FUNCTION promedio(
+    p_total DECIMAL(20,2),
+    p_cantidad BIGINT
+)
+RETURNS DECIMAL(2,1)
+BEGIN
+    IF p_cantidad = 0 THEN
+        RETURN 0.0;
+    END IF;
+
+    RETURN ROUND(p_total / p_cantidad, 1);
+END$$
+    
+CREATE PROCEDURE calificar_vendedor(
+    IN p_id_vendedor INT
+)
+
+BEGIN
+    DECLARE v_existe_vendedor INT DEFAULT 0;
+    DECLARE v_suma DECIMAL(20,2);
+    DECLARE v_cantidad BIGINT;
+    DECLARE v_promedio DECIMAL(2,1);
+
+    SELECT COUNT(*)
+    INTO v_existe_vendedor
+    FROM VENDEDOR
+    WHERE id_vendedor = p_id_vendedor;
+
+    IF v_existe_vendedor = 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'El vendedor indicado no existe';
+    END IF;
+    
+    SELECT
+        COALESCE(SUM(publicacion.calificacion), 0.0),
+        COUNT(publicacion.calificacion)
+    INTO
+        v_suma,
+        v_cantidad
+    FROM PUBLICACION AS publicacion
+    INNER JOIN PRODUCTO AS producto
+        ON producto.id_publicacion = publicacion.id_publicacion
+    WHERE publicacion.id_vendedor = p_id_vendedor;
+
+    SET v_promedio = promedio(v_suma, v_cantidad);
+
+    UPDATE VENDEDOR
+    SET calificacion = v_promedio
+    WHERE id_vendedor = p_id_vendedor;
+END$$
+    
+
+DELIMITER ;
