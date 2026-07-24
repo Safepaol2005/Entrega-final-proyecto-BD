@@ -1,5 +1,3 @@
-# 02_dml_generator.py
-import mysql.connector
 from faker import Faker
 import random
 from datetime import timedelta
@@ -20,16 +18,16 @@ def get_db_ids(table_name, id_column):
     cursor.execute(f"SELECT {id_column} FROM {table_name}")
     return [row[0] for row in cursor.fetchall()]
 
-# Obtener universidades base
+# Obtener IDs maestros fundacionales
 cursor.execute("SELECT id_universidad, dominio_correo FROM UNIVERSIDAD")
 universities = cursor.fetchall()
+categoria_ids = get_db_ids("CATEGORIA", "id_categoria")
 
-if not universities:
-    raise ValueError("La tabla UNIVERSIDAD está vacía. Ejecute primero el script de datos maestros.")
+if not universities or not categoria_ids:
+    raise ValueError("Las tablas maestras (UNIVERSIDAD o CATEGORIA) están vacías. Ejecute primero el script de datos maestros.")
 
 print("Generando usuarios y roles adaptados al contexto académico...")
 
-# 1. Generar 300 Usuarios con correos institucionales reales
 for _ in range(300):
     univ_id, domain = random.choice(universities)
     base_name = fake.unique.user_name()[:25]
@@ -42,8 +40,6 @@ for _ in range(300):
 db.commit()
 user_ids = get_db_ids("USUARIO", "id_usuario")
 
-# 2. Asignar Subclases (Exactamente 10 Administradores, 150 Vendedores, 250 Compradores)
-# 3. Administradores con áreas de soporte contextuales y realistas
 areas_soporte_realistas = [
     'Soporte Técnico de Plataforma', 'Moderación de Contenido', 'Seguridad y Cuentas', 
     'Gestión de Préstamos y Multas', 'Atención al Estudiante', 'Verificación de Identidad',
@@ -57,7 +53,6 @@ for i in range(10):
         (u_id, random.choice(['SuperAdmin', 'Moderador', 'Soporte']), area_soporte)
     )
 
-# Vendedores
 for u_id in random.sample(user_ids, 150):
     calificacion = random.choice([0.0, 10.0, round(random.uniform(3.5, 5.0), 1)])
     ventas = random.randint(0, 50)
@@ -66,7 +61,6 @@ for u_id in random.sample(user_ids, 150):
         (u_id, calificacion, ventas)
     )
 
-# 2. Compradores con preferencias de búsqueda académicas reales
 preferencias_academicas = [
     'Libros de cálculo y matemáticas', 'Calculadoras científicas gráficas', 'Implementos de laboratorio de química',
     'Materiales de arquitectura y dibujo', 'Tarjetas de desarrollo Arduino y sensores', 'Apuntes y cuadernos de ingeniería',
@@ -87,18 +81,18 @@ materia_ids = get_db_ids("MATERIA", "id_materia")
 
 print("Generando publicaciones académicas, productos y servicios...")
 
-# 1. & 5. Publicaciones y Productos con títulos, descripciones y categorías realistas del ámbito universitario
+# Se extrajo la categoría del array ya que ahora es una entidad fuerte independiente
 banco_productos_academicos = [
-    ("Libro de Cálculo de Larson 11Ed", "Libro en excelente estado, pasta original, ideal para estudiantes de ingeniería primer semestre.", "Libros y Textos", 95000),
-    ("Calculadora Científica Casio fx-991ES Plus", "Calculadora científica con funciones matriciales y vectoriales, poco uso, se entrega con estuche.", "Calculadoras", 75000),
-    ("Kit de Laboratorio de Química (Bagueta, Vasos de Precipitado)", "Set completo de cristalería resistente al calor para prácticas de química orgánica.", "Laboratorio", 60000),
-    ("Multímetro Digital UT33C+", "Multímetro con medición de temperatura y continuidad, perfecto para laboratorios de circuitos.", "Electrónica", 45000),
-    ("Escalímetro profesional y Tabla paralela A3", "Implementos de dibujo técnico para diseño y arquitectura, seminuevos.", "Arquitectura y Diseño", 50000),
-    ("Tarjeta Arduino Uno R3 + Sensor Kit", "Kit de desarrollo para proyectos de sistemas embebidos e internet de las cosas.", "Electrónica", 90000),
-    ("Libro de Bases de Datos Elmasri Navathe", "Edición en español, clave para materias de ingeniería de sistemas y gestión de datos.", "Libros y Textos", 110000),
-    ("Estetoscopio Littmann Classic III", "Color negro, original, con membrana de repuesto, uso exclusivo de área de salud.", "Medicina y Salud", 350000),
-    ("Prototyping Breadboard 830 puntos y cables jumper", "Placa de pruebas protoboard con juego de cables macho-macho para circuitos.", "Electrónica", 25000),
-    ("Física Universitaria Sears Zemansky Vol 1 y 2", "Conjunto de ambos volúmenes empastados, ligeras notas a lápiz en capítulos iniciales.", "Libros y Textos", 140000)
+    ("Libro de Cálculo de Larson 11Ed", "Libro en excelente estado, pasta original.", 95000),
+    ("Calculadora Científica Casio", "Calculadora con funciones matriciales, poco uso.", 75000),
+    ("Kit de Laboratorio de Química", "Set completo de cristalería resistente al calor.", 60000),
+    ("Multímetro Digital UT33C+", "Medición de temperatura y continuidad.", 45000),
+    ("Escalímetro profesional", "Implementos de dibujo técnico seminuevos.", 50000),
+    ("Tarjeta Arduino Uno R3", "Kit de desarrollo para sistemas embebidos.", 90000),
+    ("Libro de Bases de Datos", "Edición en español, clave para ingeniería.", 110000),
+    ("Estetoscopio Littmann Classic III", "Uso exclusivo de área de salud.", 350000),
+    ("Prototyping Breadboard", "Placa de pruebas protoboard con juego de cables.", 25000),
+    ("Física Universitaria Sears", "Conjunto de ambos volúmenes empastados.", 140000)
 ]
 
 for _ in range(500):
@@ -111,11 +105,7 @@ for _ in range(500):
         prod_base = random.choice(banco_productos_academicos)
         titulo = prod_base[0] + f" (Ref: {random.randint(10,99)})"
         descripcion = prod_base[1]
-        
-        # FIX: Enforce strict slicing to match VARCHAR(20) DDL constraint
-        categoria = prod_base[2][:20] 
-        
-        precio = float(prod_base[3] + random.randint(-5000, 10000))
+        precio = float(prod_base[2] + random.randint(-5000, 10000))
         
         cursor.execute(
             "INSERT INTO PUBLICACION (id_vendedor, id_administrador_moderador, tipo_item, titulo, descripcion, estado_publicacion) VALUES (%s, %s, %s, %s, %s, %s)",
@@ -124,16 +114,28 @@ for _ in range(500):
         pub_id = cursor.lastrowid
         
         stock = random.choice([0, random.randint(1, 10)])
+        
+        # Insertamos el producto (ya no lleva el string categoría)
         cursor.execute(
-            "INSERT INTO PRODUCTO (id_publicacion, precio, categoria, calificacion, estado_fisico, stock) VALUES (%s, %s, %s, %s, %s, %s)",
-            (pub_id, precio, categoria, round(random.uniform(3.0, 10.0), 1), random.choice(['NUEVO', 'USADO']), stock)
+            "INSERT INTO PRODUCTO (id_publicacion, precio, calificacion, estado_fisico, stock) VALUES (%s, %s, %s, %s, %s)",
+            (pub_id, precio, round(random.uniform(3.0, 10.0), 1), random.choice(['NUEVO', 'USADO']), stock)
         )
+        prod_id = cursor.lastrowid
+        
+        # Poblamos la tabla asociativa CATEGORIA_PRODUCTO (Asignamos de 1 a 2 categorias aleatorias por producto)
+        categorias_asignadas = random.sample(categoria_ids, random.randint(1, 2))
+        for cat_id in categorias_asignadas:
+            cursor.execute(
+                "INSERT INTO CATEGORIA_PRODUCTO (id_categoria, id_producto) VALUES (%s, %s)",
+                (cat_id, prod_id)
+            )
+
     else:
         servicios_academicos = [
-            ("Tutoría de Cálculo Diferencial e Integral", "Clases particulares orientadas a la preparación de parciales y solución de talleres.", "Servicios Académicos", 35000),
-            ("Asesoría en Estructuras de Datos y Programación", "Apoyo en código C++, Java y depuración de algoritmos complejos.", "Servicios Académicos", 45000),
-            ("Clases de Física Mecánica y Estática", "Explicación de diagramas de cuerpo libre y leyes de Newton paso a paso.", "Servicios Académicos", 40000),
-            ("Traducción y Corrección de Artículos Científicos", "Revisión de estilo y formato en inglés técnico para proyectos de grado.", "Servicios Académicos", 50000)
+            ("Tutoría de Cálculo Diferencial", "Clases orientadas a parciales.", 35000),
+            ("Asesoría en Programación", "Apoyo en código C++ y Java.", 45000),
+            ("Clases de Física Mecánica", "Diagramas de cuerpo libre.", 40000),
+            ("Corrección de Artículos", "Revisión de estilo en inglés.", 50000)
         ]
         serv_base = random.choice(servicios_academicos)
         cursor.execute(
@@ -143,16 +145,15 @@ for _ in range(500):
         pub_id = cursor.lastrowid
         cursor.execute(
             "INSERT INTO SERVICIO (id_publicacion, modalidad, tarifa_por_hora, disponibilidad_horaria, calificacion) VALUES (%s, %s, %s, %s, %s)",
-            (pub_id, random.choice(['Presencial', 'Virtual']), float(serv_base[3]), "Lunes a Viernes de 2pm a 6pm", round(random.uniform(4.0, 10.0), 1))
+            (pub_id, random.choice(['Presencial', 'Virtual']), float(serv_base[2]), "L-V 2pm a 6pm", round(random.uniform(4.0, 10.0), 1))
         )
 db.commit()
 
 publicacion_ids = get_db_ids("PUBLICACION", "id_publicacion")
 producto_ids = get_db_ids("PRODUCTO", "id_producto")
 
-print("Generando asociaciones, transacciones, ofertas y sanciones...")
+print("Generando transacciones finales...")
 
-# Asociaciones Materia-Producto
 for _ in range(60):
     m_id = random.choice(materia_ids)
     p_id = random.choice(producto_ids)
@@ -162,7 +163,6 @@ for _ in range(60):
         pass
 db.commit()
 
-# Transacciones (COMPRA)
 for _ in range(1050):
     c_id = random.choice(comprador_ids)
     pub_id = random.choice(publicacion_ids)
@@ -172,11 +172,9 @@ for _ in range(1050):
         (c_id, pub_id, monto, random.choice(['Transferencia Bancaria', 'Nequi', 'Daviplata', 'Efectivo']))
     )
 
-# 4. Datos en la tabla OFERTA (Re-negociación de precios con montos reales)
 for _ in range(200):
     c_id = random.choice(comprador_ids)
     pub_id = random.choice(publicacion_ids)
-    # Generar oferta menor al precio promedio de mercado
     monto_ofertado = round(random.uniform(15000.0, 120000.0), 2)
     estado_oferta = random.choice(['Pendiente', 'Aceptada', 'Rechazada'])
     cursor.execute(
@@ -184,8 +182,6 @@ for _ in range(200):
         (c_id, pub_id, monto_ofertado, estado_oferta)
     )
 
-# Préstamos de material académico
-prestamo_ids = []
 for _ in range(200):
     c_id = random.choice(comprador_ids)
     pub_id = random.choice(publicacion_ids)
@@ -193,27 +189,22 @@ for _ in range(200):
     f_inicio = f_solicitud + timedelta(days=1)
     f_pactada = f_inicio + timedelta(days=random.randint(5, 15))
     
-    # Determinar si el préstamo está demorado/vencido para activar la regla de sanción
     estado_prestamo = random.choice(['Solicitado', 'Activo', 'Devuelto', 'Demorado'])
     f_real = None
     if estado_prestamo == 'Devuelto':
         f_real = f_pactada - timedelta(days=random.randint(0, 2))
-    elif estado_prestamo == 'Demorado':
-        f_real = None # Sigue sin devolverse a tiempo
         
     cursor.execute(
         "INSERT INTO PRESTAMO (id_comprador, id_publicacion, fecha_solicitud, fecha_inicio, fecha_devolucion_pactada, fecha_devolucion_real, estado_prestamo) VALUES (%s, %s, %s, %s, %s, %s, %s)",
         (c_id, pub_id, f_solicitud.strftime('%Y-%m-%d %H:%M:%S'), f_inicio.strftime('%Y-%m-%d %H:%M:%S'), f_pactada.strftime('%Y-%m-%d %H:%M:%S'), f_real.strftime('%Y-%m-%d %H:%M:%S') if f_real else None, estado_prestamo)
     )
-    prestamo_ids.append(cursor.lastrowid)
 
-# 6. Sanciones por productos prestados no entregados en el plazo dado
 cursor.execute("SELECT id_prestamo, id_comprador FROM PRESTAMO WHERE estado_prestamo = 'Demorado'")
 prestamos_demorados = cursor.fetchall()
 
 for p_id, c_id in prestamos_demorados:
     admin_id = random.choice(admin_ids)
-    motivo_sancion = "Incumplimiento en la fecha límite de devolución del material bibliográfico/instrumento prestado."
+    motivo_sancion = "Incumplimiento en la devolucion del material."
     monto_multa = round(random.uniform(15000.0, 50000.0), 2)
     f_inicio_sancion = fake.date_time_between(start_date='-20d', end_date='now')
     f_fin_sancion = f_inicio_sancion + timedelta(days=30)
@@ -223,7 +214,6 @@ for p_id, c_id in prestamos_demorados:
         (c_id, p_id, admin_id, motivo_sancion, monto_multa, f_inicio_sancion.strftime('%Y-%m-%d %H:%M:%S'), f_fin_sancion.strftime('%Y-%m-%d %H:%M:%S'), 'Vigente')
     )
 
-# Trueques académicos
 for _ in range(80):
     c_id = random.choice(comprador_ids)
     pub_ofrecida, pub_deseada = random.sample(publicacion_ids, 2)
@@ -235,4 +225,3 @@ for _ in range(80):
 db.commit()
 cursor.close()
 db.close()
-print("¡Poblamiento de datos contextualizado y validado completado con éxito!")
