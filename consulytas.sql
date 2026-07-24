@@ -4,7 +4,7 @@
   individual frente a la media y desviación estándar del catálogo.
 */
 WITH TablaProbabilidades AS (
-    -- Paso 1: Obtenemos la probabilidad (proba) de cada producto usando la nueva función
+    
     SELECT 
         id_producto,
         id_publicacion,
@@ -13,13 +13,11 @@ WITH TablaProbabilidades AS (
     FROM PRODUCTO
 ),
 MetricasChebyshev AS (
-    -- Paso 2: Calculamos la media empirica (mu) y la desviacion estandar (sigma) de las probabilidades
     SELECT 
         AVG(proba) AS media_mu,
         STDDEV(proba) AS desviacion_sigma
     FROM TablaProbabilidades
 )
--- Paso 3: Evaluamos cada producto con k=2 desviaciones estandar (al menos 75% de confianza)
 SELECT 
     t.id_producto,
     t.proba,
