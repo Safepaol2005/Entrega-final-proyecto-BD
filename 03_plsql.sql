@@ -139,6 +139,36 @@ BEGIN
     SET calificacion = v_promedio
     WHERE id_vendedor = p_id_vendedor;
 END$$
-    
 
+-- ======================
+-- Triggers
+-- ================
+
+-- 1. Triggers que generan automaticamente la auditoria para las transacciones
+CREATE OR TRIGGER trg_auditar_nueva_compra
+AFTER INSERT ON COMPRA
+FOR EACH ROW
+BEGIN
+    INSERT INTO AUDITORIA_TRANSACCIONES (id_compra, tipo_evento, detalle_evento, usuario_auditor) VALUES 
+        (NEW.id_compra, 'NUEVA_COMPRA', CONCAT('El comprador ID ', NEW.id_comprador, ' realizó una compra en la publicación ID ', NEW.id_publicacion, ' por un monto de $', NEW.monto_total, ' con el método de pago: ', NEW.metodo_pago), CURRENT_USER());
+END$$
+
+CREATE TRIGGER trg_auditar_nuevo_trueque
+AFTER INSERT ON TRUEQUE
+FOR EACH ROW
+BEGIN
+    INSERT INTO AUDITORIA_TRANSACCIONES (id_trueque, tipo_evento, detalle_evento, usuario_auditor) VALUES 
+        (NEW.id_trueque, 'NUEVO_TRUEQUE', CONCAT('Trueque iniciado por comprador ID ', NEW.id_comprador_iniciador, ' ofreciendo publicación ', NEW.id_publicacion_ofrecida, ' por la publicación ', NEW.id_publicacion_deseada), CURRENT_USER());
+END$$
+
+CREATE TRIGGER trg_auditar_nuevo_prestamo
+AFTER INSERT ON PRESTAMO
+FOR EACH ROW
+BEGIN
+    INSERT INTO AUDITORIA_TRANSACCIONES (id_prestamo, tipo_evento, detalle_evento, usuario_auditor) VALUES 
+        (NEW.id_prestamo, 'NUEVO_PRESTAMO', CONCAT('El comprador ID ', NEW.id_comprador, ' solicitó en préstamo la publicación ID ', NEW.id_publicacion, '. Fecha pactada de devolución: ', DATE_FORMAT(NEW.fecha_devolucion_pactada, '%Y-%m-%d %H:%i')), CURRENT_USER());
+END //
+
+-- 2. 
+    
 DELIMITER ;
