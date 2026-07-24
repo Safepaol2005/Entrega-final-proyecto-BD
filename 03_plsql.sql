@@ -94,6 +94,7 @@ CREATE FUNCTION promedio(
     p_cantidad BIGINT
 )
 RETURNS DECIMAL(2,1)
+DETERMINISTIC
 BEGIN
     IF p_cantidad = 0 THEN
         RETURN 0.0;
@@ -105,12 +106,24 @@ END$$
 CREATE PROCEDURE calificar_vendedor(
     IN p_id_vendedor INT
 )
-
 BEGIN
     DECLARE v_existe_vendedor INT DEFAULT 0;
-    DECLARE v_suma DECIMAL(20,2);
-    DECLARE v_cantidad BIGINT;
+    DECLARE v_calificacion DECIMAL(2,1);
+    DECLARE v_suma DECIMAL(20,2) DEFAULT 0.0;
+    DECLARE v_cantidad BIGINT DEFAULT 0;
     DECLARE v_promedio DECIMAL(2,1);
+    DECLARE v_fin BOOLEAN DEFAULT FALSE;
+
+    DECLARE cursor_calificaciones CURSOR FOR
+        SELECT producto.calificacion
+        FROM PUBLICACION AS publicacion
+        INNER JOIN PRODUCTO AS producto
+            ON producto.id_publicacion = publicacion.id_publicacion
+        WHERE publicacion.id_vendedor = p_id_vendedor
+          AND producto.calificacion IS NOT NULL;
+
+    DECLARE CONTINUE HANDLER FOR NOT FOUND
+        SET v_fin = TRUE;
 
     SELECT COUNT(*)
     INTO v_existe_vendedor
@@ -121,17 +134,21 @@ BEGIN
         SIGNAL SQLSTATE '45000'
             SET MESSAGE_TEXT = 'El vendedor indicado no existe';
     END IF;
-    
-    SELECT
-        COALESCE(SUM(producto.calificacion), 0.0),
-        COUNT(producto.calificacion)
-    INTO
-        v_suma,
-        v_cantidad
-    FROM PUBLICACION AS publicacion
-    INNER JOIN PRODUCTO AS producto
-        ON producto.id_publicacion = publicacion.id_publicacion
-    WHERE publicacion.id_vendedor = p_id_vendedor;
+
+    OPEN cursor_calificaciones;
+
+    recorrer_calificaciones: LOOP
+        FETCH cursor_calificaciones INTO v_calificacion;
+
+        IF v_fin THEN
+            LEAVE recorrer_calificaciones;
+        END IF;
+
+        SET v_suma = v_suma + v_calificacion;
+        SET v_cantidad = v_cantidad + 1;
+    END LOOP;
+
+    CLOSE cursor_calificaciones;
 
     SET v_promedio = promedio(v_suma, v_cantidad);
 
