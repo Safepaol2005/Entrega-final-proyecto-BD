@@ -38,6 +38,7 @@ ORDER BY t.proba DESC;
   al vendedor en la posición anterior.
 */
 
+CREATE OR REPLACE VIEW vista_ranking_vendedores AS
 WITH VendedoresFiltrados AS (
     SELECT
         id_vendedor,
@@ -47,14 +48,13 @@ WITH VendedoresFiltrados AS (
     FROM VENDEDOR
     WHERE ventas_completadas >= 10
 ),
-
 Ranking AS (
     SELECT
         id_vendedor,
         calificacion_actual,
         ventas_completadas,
         puntuacion_fiabilidad,
-        ROUND(puntuacion_fiabilidad,2) AS fiabilidad,
+        ROUND(puntuacion_fiabilidad, 2) AS fiabilidad,
 
         DENSE_RANK() OVER (
             ORDER BY puntuacion_fiabilidad DESC
@@ -64,14 +64,12 @@ Ranking AS (
             ORDER BY puntuacion_fiabilidad DESC
         ) AS posicion_fila,
 
-        LAG(puntuacion_fiabilidad)
-            OVER (
-                ORDER BY puntuacion_fiabilidad DESC
-            ) AS fiabilidad_anterior
+        LAG(puntuacion_fiabilidad) OVER (
+            ORDER BY puntuacion_fiabilidad DESC
+        ) AS fiabilidad_anterior
 
     FROM VendedoresFiltrados
 )
-
 SELECT
     id_vendedor,
     calificacion_actual,
@@ -79,7 +77,6 @@ SELECT
     fiabilidad,
     ranking_fiabilidad,
     posicion_fila,
-
     ROUND(
         COALESCE(
             puntuacion_fiabilidad - fiabilidad_anterior,
@@ -87,7 +84,5 @@ SELECT
         ),
         2
     ) AS diferencia_con_puesto_anterior
-
 FROM Ranking
-
 ORDER BY ranking_fiabilidad;
