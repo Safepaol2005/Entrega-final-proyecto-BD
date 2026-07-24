@@ -104,11 +104,16 @@ CREATE TABLE PUBLICACION (
     CONSTRAINT chk_estado_pub CHECK (estado_publicacion IN ('Activa', 'Pausada', 'Bloqueada', 'Finalizada'))
 );
 
+CREATE TABLE CATEGORIA (
+    id_categoria INT NOT NULL AUTO_INCREMENT,
+    nombre VARCHAR(50) NOT NULL UNIQUE,
+    PRIMARY KEY (id_categoria)
+);
+
 CREATE TABLE PRODUCTO (
     id_producto INT NOT NULL AUTO_INCREMENT,
     id_publicacion INT NOT NULL,
     precio DECIMAL(15,2) NOT NULL,
-    categoria VARCHAR(20) NOT NULL,
     calificacion DECIMAL(3,1) NULL,
     estado_fisico VARCHAR(10) NOT NULL,
     stock INT NOT NULL,
@@ -119,6 +124,16 @@ CREATE TABLE PRODUCTO (
     CONSTRAINT chk_prod_calif CHECK (calificacion >= 0 AND calificacion <= 10),
     CONSTRAINT chk_estado_fisico CHECK (estado_fisico IN ('NUEVO', 'USADO')),
     CONSTRAINT chk_stock CHECK (stock >= 0)
+);
+
+CREATE TABLE CATEGORIA_PRODUCTO (
+    id_categoria INT NOT NULL,
+    id_producto INT NOT NULL,
+    PRIMARY KEY (id_categoria, id_producto),
+    CONSTRAINT fk_catprod_categoria FOREIGN KEY (id_categoria)
+        REFERENCES CATEGORIA (id_categoria) ON DELETE CASCADE,
+    CONSTRAINT fk_catprod_producto FOREIGN KEY (id_producto)
+        REFERENCES PRODUCTO (id_producto) ON DELETE CASCADE
 );
 
 CREATE TABLE SERVICIO (
