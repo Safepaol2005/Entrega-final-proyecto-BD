@@ -259,15 +259,20 @@ BEGIN
     DECLARE v_k DECIMAL(10,4) DEFAULT 10.0000;
     DECLARE v_fiabilidad DECIMAL(10,4) DEFAULT 0.0000;
 
-    SELECT ventas_completadas, calificacion
+    -- Unimos PRODUCTO con PUBLICACION y luego con VENDEDOR
+    SELECT v.ventas_completadas, v.calificacion
     INTO v_vt, v_c
-    FROM VENDEDOR
-    WHERE id_vendedor = p_id_vendedor;
+    FROM PRODUCTO p
+    INNER JOIN PUBLICACION pub ON p.id_publicacion = pub.id_publicacion
+    INNER JOIN VENDEDOR v ON pub.id_vendedor = v.id_vendedor
+    WHERE p.id_producto = p_id_producto;
 
+    -- Obtenemos la calificación promedio global de los vendedores
     SELECT AVG(calificacion)
     INTO v_cm
     FROM VENDEDOR;
 
+    -- Aplicamos la fórmula de fiabilidad
     IF (v_vt + v_k) > 0 THEN
         SET v_fiabilidad =
             ((v_vt / (v_vt + v_k)) * v_c) +
