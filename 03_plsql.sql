@@ -222,5 +222,79 @@ BEGIN
     END IF;
 
 END //
+
+-- ======================
+-- FUNCTIONS
+-- ======================
+
+
+-- Función: calcular_probabilidad_producto
+-- Descripción:
+-- Calcula la probabilidad de venta de un producto utilizando un enfoque probabilistico 
+
+CREATE FUNCTION calcular_probabilidad_producto(p_id_producto INT)
+RETURNS DECIMAL(10,6)
+READS SQL DATA
+BEGIN
+    DECLARE v_vt INT DEFAULT 0;
+    DECLARE v_c DECIMAL(10,4) DEFAULT 0.0000;
+    DECLARE v_cm DECIMAL(10,4) DEFAULT 0.0000;
+    DECLARE v_k DECIMAL(10,4) DEFAULT 10.0000;
+    DECLARE v_fiabilidad DECIMAL(10,4) DEFAULT 0.0000;
+
+    SELECT ventas_completadas, calificacion
+    INTO v_vt, v_c
+    FROM VENDEDOR
+    WHERE id_vendedor = p_id_vendedor;
+
+    SELECT AVG(calificacion)
+    INTO v_cm
+    FROM VENDEDOR;
+
+    IF (v_vt + v_k) > 0 THEN
+        SET v_fiabilidad =
+            ((v_vt / (v_vt + v_k)) * v_c) +
+            ((v_k / (v_vt + v_k)) * v_cm);
+    ELSE
+        SET v_fiabilidad = 0.0000;
+    END IF;
+
+    RETURN v_fiabilidad;
+END //
+
+
+-- Función: calcular_fiabilidad_vendedor
+-- Descripción:
+-- Calcula la fiabilidad de un vendedor mediante un promedio bayesiano
+
+CREATE FUNCTION calcular_fiabilidad_vendedor(p_id_vendedor INT)
+RETURNS DECIMAL(10,4)
+READS SQL DATA
+BEGIN
+    DECLARE v_vt INT DEFAULT 0;
+    DECLARE v_c DECIMAL(10,4) DEFAULT 0.0000;
+    DECLARE v_cm DECIMAL(10,4) DEFAULT 0.0000;
+    DECLARE v_k DECIMAL(10,4) DEFAULT 10.0000;
+    DECLARE v_fiabilidad DECIMAL(10,4) DEFAULT 0.0000;
+
+    SELECT ventas_completadas, calificacion
+    INTO v_vt, v_c
+    FROM VENDEDOR
+    WHERE id_vendedor = p_id_vendedor;
+
+    SELECT AVG(calificacion)
+    INTO v_cm
+    FROM VENDEDOR;
+
+    IF (v_vt + v_k) > 0 THEN
+        SET v_fiabilidad =
+            ((v_vt / (v_vt + v_k)) * v_c) +
+            ((v_k / (v_vt + v_k)) * v_cm);
+    ELSE
+        SET v_fiabilidad = 0.0000;
+    END IF;
+
+    RETURN v_fiabilidad;
+END //
     
 DELIMITER ;
