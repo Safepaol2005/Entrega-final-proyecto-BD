@@ -25,3 +25,16 @@ INSERT INTO MATERIA (id_universidad, nombre_materia, creditos) VALUES
 (3, 'Redes de Computadores', 4),
 (4, 'Sistemas Operativos', 4), 
 (5, 'Inteligencia Artificial', 3);
+
+-- Inserción de catálogo de categorías (Mínimo 10 filas)
+INSERT INTO CATEGORIA (nombre) VALUES
+('Libros y Textos'),
+('Calculadoras y Cómputo'),
+('Material de Laboratorio'),
+('Electrónica y Robótica'),
+('Arquitectura y Diseño'),
+('Medicina y Salud'),
+('Papelería Técnica'),
+('Software y Licencias'),
+('Instrumentos de Medición'),
+('Herramientas de Taller');
