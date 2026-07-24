@@ -1,3 +1,4 @@
+import mysql.connector
 from faker import Faker
 import random
 from datetime import timedelta
@@ -95,7 +96,8 @@ banco_productos_academicos = [
     ("Física Universitaria Sears", "Conjunto de ambos volúmenes empastados.", 140000)
 ]
 
-for _ in range(500):
+# FIX: Increased volume to strictly meet the 1000 row requirement
+for _ in range(1000):
     v_id = random.choice(vendedor_ids)
     a_id = random.choice(admin_ids) if random.random() > 0.2 else None
     tipo = random.choice(['Producto', 'Servicio'])
@@ -104,7 +106,10 @@ for _ in range(500):
     if tipo == 'Producto':
         prod_base = random.choice(banco_productos_academicos)
         titulo = prod_base[0] + f" (Ref: {random.randint(10,99)})"
-        descripcion = prod_base[1]
+        
+        # FIX: Logically assign NULL (None in Python) 30% of the time to test missing data
+        descripcion = prod_base[1] if random.random() > 0.3 else None
+        
         precio = float(prod_base[2] + random.randint(-5000, 10000))
         
         cursor.execute(
@@ -115,20 +120,22 @@ for _ in range(500):
         
         stock = random.choice([0, random.randint(1, 10)])
         
-        # Insertamos el producto (ya no lleva el string categoría)
         cursor.execute(
             "INSERT INTO PRODUCTO (id_publicacion, precio, calificacion, estado_fisico, stock) VALUES (%s, %s, %s, %s, %s)",
             (pub_id, precio, round(random.uniform(3.0, 10.0), 1), random.choice(['NUEVO', 'USADO']), stock)
         )
         prod_id = cursor.lastrowid
         
-        # Poblamos la tabla asociativa CATEGORIA_PRODUCTO (Asignamos de 1 a 2 categorias aleatorias por producto)
+        # Poblamos la tabla asociativa CATEGORIA_PRODUCTO
         categorias_asignadas = random.sample(categoria_ids, random.randint(1, 2))
         for cat_id in categorias_asignadas:
-            cursor.execute(
-                "INSERT INTO CATEGORIA_PRODUCTO (id_categoria, id_producto) VALUES (%s, %s)",
-                (cat_id, prod_id)
-            )
+            try:
+                cursor.execute(
+                    "INSERT INTO CATEGORIA_PRODUCTO (id_categoria, id_producto) VALUES (%s, %s)",
+                    (cat_id, prod_id)
+                )
+            except mysql.connector.errors.IntegrityError:
+                pass
 
     else:
         servicios_academicos = [
@@ -138,9 +145,13 @@ for _ in range(500):
             ("Corrección de Artículos", "Revisión de estilo en inglés.", 50000)
         ]
         serv_base = random.choice(servicios_academicos)
+        
+        # FIX: Logically assign NULL to services description 30% of the time as well
+        descripcion = serv_base[1] if random.random() > 0.3 else None
+        
         cursor.execute(
             "INSERT INTO PUBLICACION (id_vendedor, id_administrador_moderador, tipo_item, titulo, descripcion, estado_publicacion) VALUES (%s, %s, %s, %s, %s, %s)",
-            (v_id, a_id, tipo, serv_base[0], serv_base[1], estado)
+            (v_id, a_id, tipo, serv_base[0], descripcion, estado)
         )
         pub_id = cursor.lastrowid
         cursor.execute(
