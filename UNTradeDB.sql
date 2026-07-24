@@ -92,7 +92,7 @@ CREATE TABLE PUBLICACION (
     id_administrador_moderador INT NULL,
     tipo_item VARCHAR(20) NOT NULL,
     titulo VARCHAR(150) NOT NULL,
-    descripcion TEXT NOT NULL,
+    descripcion TEXT NULL,
     fecha_publicacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     estado_publicacion VARCHAR(20) NOT NULL DEFAULT 'Activa',
     PRIMARY KEY (id_publicacion),
