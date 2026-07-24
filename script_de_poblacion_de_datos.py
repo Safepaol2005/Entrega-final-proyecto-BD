@@ -53,7 +53,7 @@ def format_val(val):
 def write_bulk_insert(file, table, columns, values_list):
     """Genera y escribe una sentencia INSERT multifila en el archivo."""
     if not values_list:
-        return # No hay datos para insertar en esta tabla
+        return 
     
     cols_str = ", ".join(columns)
     file.write(f"INSERT INTO {table} ({cols_str}) VALUES\n")
@@ -63,7 +63,6 @@ def write_bulk_insert(file, table, columns, values_list):
         vals_str = ", ".join(format_val(v) for v in vals)
         rows.append(f"({vals_str})")
     
-    # Une todas las filas con coma y salto de línea, y termina con punto y coma
     file.write(",\n".join(rows) + ";\n\n")
 
 
@@ -72,9 +71,9 @@ def write_bulk_insert(file, table, columns, values_list):
 # ---------------------------------------------------------
 print("Generando datos en memoria...")
 
-# Maestros
+# Universidades, Materias, Categorias
 univ_vals = []
-universities_ref = [] # (ID, dominio)
+universities_ref = [] 
 for i, (nombre, pais, dominio) in enumerate(universidades_data, start=1):
     univ_vals.append((nombre, pais, dominio))
     universities_ref.append((i, dominio))
@@ -142,7 +141,6 @@ publicacion_vals = []
 producto_vals = []
 servicio_vals = []
 cat_prod_vals = []
-
 publicacion_ids = []
 producto_ids = []
 
@@ -172,7 +170,6 @@ for _ in range(1000):
         stock = random.choice([0, random.randint(1, 10)])
         producto_vals.append((pub_id_counter, precio, round(random.uniform(3.0, 10.0), 1), random.choice(['NUEVO', 'USADO']), stock))
         
-        # Asociar a CATEGORIA_PRODUCTO
         categorias_asignadas = random.sample(categoria_ids, random.randint(1, 2))
         for cat_id in categorias_asignadas:
             if (cat_id, prod_id_counter) not in cat_prod_set:
@@ -192,7 +189,11 @@ for _ in range(1000):
         publicacion_vals.append((v_id, a_id, tipo, serv_base[0], descripcion, estado))
         servicio_vals.append((pub_id_counter, random.choice(['Presencial', 'Virtual']), float(serv_base[2]), "L-V 2pm a 6pm", round(random.uniform(4.0, 10.0), 1)))
 
-# Materia-Producto, Compras, Ofertas, Prestamos, Trueques
+# Auditoría
+auditoria_vals = []
+usuario_auditor_script = "root@localhost"
+
+# Materia-Producto
 mat_prod_vals = []
 mat_prod_set = set()
 for _ in range(60):
@@ -202,13 +203,22 @@ for _ in range(60):
         mat_prod_vals.append((m_id, p_id))
         mat_prod_set.add((m_id, p_id))
 
+# Compras y Simulación del Trigger de Compras
 compra_vals = []
-for _ in range(1050):
+for i in range(1050):
+    compra_id = i + 1
     c_id = random.choice(comprador_ids)
     pub_id = random.choice(publicacion_ids)
     monto = round(random.uniform(20000.0, 350000.0), 2)
-    compra_vals.append((c_id, pub_id, monto, random.choice(['Transferencia Bancaria', 'Nequi', 'Daviplata', 'Efectivo'])))
+    metodo_pago = random.choice(['Transferencia Bancaria', 'Nequi', 'Daviplata', 'Efectivo'])
+    
+    compra_vals.append((c_id, pub_id, monto, metodo_pago))
+    
+    # Registro de Auditoría (Simulando trg_auditar_nueva_compra)
+    detalle_compra = f"El comprador ID {c_id} realizó una compra en la publicación ID {pub_id} por un monto de ${monto} con el método de pago: {metodo_pago}"
+    auditoria_vals.append((compra_id, None, None, 'NUEVA_COMPRA', detalle_compra, usuario_auditor_script))
 
+# Ofertas
 oferta_vals = []
 for _ in range(200):
     c_id = random.choice(comprador_ids)
@@ -217,11 +227,13 @@ for _ in range(200):
     estado_oferta = random.choice(['Pendiente', 'Aceptada', 'Rechazada'])
     oferta_vals.append((c_id, pub_id, monto_ofertado, estado_oferta))
 
+# Préstamos y Simulación del Trigger de Préstamos
 prestamo_vals = []
 prestamos_demorados = []
 prestamo_id_counter = 0
 
 for _ in range(200):
+    prestamo_id_counter += 1
     c_id = random.choice(comprador_ids)
     pub_id = random.choice(publicacion_ids)
     f_solicitud = fake.date_time_between(start_date='-6m', end_date='-1m')
@@ -233,13 +245,17 @@ for _ in range(200):
     if estado_prestamo == 'Devuelto':
         f_real = f_pactada - timedelta(days=random.randint(0, 2))
         
-    prestamo_id_counter += 1
     if estado_prestamo == 'Demorado':
         prestamos_demorados.append((prestamo_id_counter, c_id))
         
     prestamo_vals.append((c_id, pub_id, f_solicitud.strftime('%Y-%m-%d %H:%M:%S'), f_inicio.strftime('%Y-%m-%d %H:%M:%S'), 
                           f_pactada.strftime('%Y-%m-%d %H:%M:%S'), f_real.strftime('%Y-%m-%d %H:%M:%S') if f_real else None, estado_prestamo))
 
+    # Registro de Auditoría (Simulando trg_auditar_nuevo_prestamo)
+    detalle_prestamo = f"El comprador ID {c_id} solicitó en préstamo la publicación ID {pub_id}. Fecha pactada de devolución: {f_pactada.strftime('%Y-%m-%d %H:%M')}"
+    auditoria_vals.append((None, None, prestamo_id_counter, 'NUEVO_PRESTAMO', detalle_prestamo, usuario_auditor_script))
+
+# Sanciones
 sancion_vals = []
 for p_id, c_id in prestamos_demorados:
     admin_id = random.choice(admin_ids)
@@ -250,11 +266,18 @@ for p_id, c_id in prestamos_demorados:
     
     sancion_vals.append((c_id, p_id, admin_id, motivo_sancion, monto_multa, f_inicio_sancion.strftime('%Y-%m-%d %H:%M:%S'), f_fin_sancion.strftime('%Y-%m-%d %H:%M:%S'), 'Vigente'))
 
+# Trueques y Simulación del Trigger de Trueques
 trueque_vals = []
-for _ in range(80):
+for i in range(80):
+    trueque_id = i + 1
     c_id = random.choice(comprador_ids)
     pub_ofrecida, pub_deseada = random.sample(publicacion_ids, 2)
-    trueque_vals.append((c_id, pub_deseada, pub_ofrecida, random.choice(['Pendiente', 'Aceptado', 'Rechazado'])))
+    estado_trueque = random.choice(['Pendiente', 'Aceptado', 'Rechazado'])
+    trueque_vals.append((c_id, pub_deseada, pub_ofrecida, estado_trueque))
+
+    # Registro de Auditoría (Simulando trg_auditar_nuevo_trueque)
+    detalle_trueque = f"Trueque iniciado por comprador ID {c_id} ofreciendo publicación {pub_ofrecida} por la publicación {pub_deseada}"
+    auditoria_vals.append((None, trueque_id, None, 'NUEVO_TRUEQUE', detalle_trueque, usuario_auditor_script))
 
 
 # ---------------------------------------------------------
@@ -265,7 +288,7 @@ print("Escribiendo datos en 02_dml.sql...")
 with open('02_dml.sql', 'w', encoding='utf-8') as sql_file:
     sql_file.write("-- ==========================================\n")
     sql_file.write("-- Script de Población de Datos (DML)\n")
-    sql_file.write("-- Generado automáticamente (Inserts Multifila)\n")
+    sql_file.write("-- Generado automáticamente (Inserts Multifila y simulación de triggers)\n")
     sql_file.write("-- ==========================================\n\n")
 
     sql_file.write("USE UnTrade;\n\n")
@@ -295,4 +318,7 @@ with open('02_dml.sql', 'w', encoding='utf-8') as sql_file:
     write_bulk_insert(sql_file, "SANCION", ["id_usuario", "id_prestamo", "id_administrador", "motivo", "monto_multa", "fecha_inicio", "fecha_fin", "estado_sancion"], sancion_vals)
     write_bulk_insert(sql_file, "TRUEQUE", ["id_comprador_iniciador", "id_publicacion_deseada", "id_publicacion_ofrecida", "estado_trueque"], trueque_vals)
 
-print("Script finalizado exitosamente.")
+    sql_file.write("-- 5. Tablas de Log y Auditoría (Simulación de Triggers)\n")
+    write_bulk_insert(sql_file, "AUDITORIA_TRANSACCIONES", ["id_compra", "id_trueque", "id_prestamo", "tipo_evento", "detalle_evento", "usuario_auditor"], auditoria_vals)
+
+print("Script finalizado exitosamente. Auditoría generada correctamente.")
